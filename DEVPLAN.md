@@ -110,3 +110,23 @@ php artisan migrate
 php artisan db:seed
 php artisan serve
 ```
+
+### Docker
+
+Laravel の `composer.json`・`public/`・`artisan` などフレームワーク一式がある前提で利用します。
+
+```bash
+cp .env.example .env
+docker compose up -d --build
+```
+
+- **アプリ（nginx）**: `http://localhost`（既定ポート 80。`APP_PORT` で変更可）
+- **phpMyAdmin**: `http://localhost:8080`（`PMA_PORT` で変更可）
+- **MySQL**: ホストからは `127.0.0.1` + `FORWARD_DB_PORT`（既定 3306）。アプリ DB ユーザー既定は `MYSQL_APP_USER` / `MYSQL_APP_PASSWORD`（未設定時 `pokenote` / `secret`）。root は `DB_ROOT_PASSWORD`（既定 `root`）
+
+---
+
+## ✅ 追加実装（インフラ）
+
+- [x] **Docker** — `docker-compose.yml`（nginx 1.21.1 + PHP 8.2 FPM + MySQL 8.0.26 + phpMyAdmin）、`docker/php/Dockerfile`、`docker/nginx/default.conf`、`docker/mysql/my.cnf`、`docker/php/docker-entrypoint.sh`
+- [x] **Laravel 11 スケルトン** — `composer.json` / `composer.lock`、`artisan`、`public/index.php`、`bootstrap/app.php`（API ルート・ゲストは `login` へ）、`config/*`、`routes/console.php`、`app/Http/Controllers/Controller.php`、`app/Providers/AppServiceProvider.php`、`database/factories/UserFactory.php`、`phpunit.xml`、`vite` / `tailwind` / `postcss` 設定、`storage` / `bootstrap/cache` の `.gitignore`
