@@ -3,9 +3,14 @@
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h4 class="mb-0"><i class="bi bi-trophy"></i> 対戦履歴</h4>
-    <a href="{{ route('battles.create') }}" class="btn btn-success btn-sm">
-        <i class="bi bi-plus-circle"></i> 新規対戦
-    </a>
+    <div class="d-flex gap-2">
+        <button class="btn btn-sm btn-outline-secondary" onclick="exportBattlesCsv()">
+            <i class="bi bi-download"></i> CSV出力
+        </button>
+        <a href="{{ route('battles.create') }}" class="btn btn-success btn-sm">
+            <i class="bi bi-plus-circle"></i> 新規対戦
+        </a>
+    </div>
 </div>
 
 <!-- フィルタ -->
@@ -41,17 +46,106 @@
                 <input type="date" name="date_to" class="form-control form-control-sm"
                        value="{{ request('date_to') }}">
             </div>
-            <div class="col-sm-1 d-flex gap-1">
+            <div class="col-sm-2">
+                <label class="form-label mb-1" style="font-size:.8rem">タグ</label>
+                <input type="text" name="tag" class="form-control form-control-sm"
+                       placeholder="タグで検索" value="{{ request('tag') }}">
+            </div>
+            <div class="col-sm-1 d-flex gap-1 align-items-end">
                 <button type="submit" class="btn btn-primary btn-sm flex-fill">
                     <i class="bi bi-search"></i>
                 </button>
-                @if(request()->hasAny(['opponent','result','format','date_from','date_to']))
+                @if(request()->hasAny(['opponent','result','format','date_from','date_to','tag']))
                 <a href="{{ route('battles.index') }}" class="btn btn-outline-secondary btn-sm">
                     <i class="bi bi-x"></i>
                 </a>
                 @endif
             </div>
         </form>
+    </div>
+</div>
+
+<!-- カレンダービュー -->
+<div class="card border-0 shadow-sm mb-3" x-data="{calOpen: false}">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center"
+         style="cursor:pointer" @click="calOpen=!calOpen">
+        <strong><i class="bi bi-calendar3"></i> カレンダービュー
+            <span class="badge bg-secondary ms-1" style="font-size:.7rem">{{ $calYear }}年{{ $calMonth }}月</span>
+        </strong>
+        <i class="bi" :class="calOpen?'bi-chevron-up':'bi-chevron-down'"></i>
+    </div>
+    <div x-show="calOpen" x-collapse>
+        <div class="card-body">
+            <!-- 月移動 -->
+            <div class="d-flex align-items-center gap-2 mb-3">
+                @php
+                    $prevYear  = $calMonth === 1 ? $calYear - 1 : $calYear;
+                    $prevMonth = $calMonth === 1 ? 12 : $calMonth - 1;
+                    $nextYear  = $calMonth === 12 ? $calYear + 1 : $calYear;
+                    $nextMonth = $calMonth === 12 ? 1 : $calMonth + 1;
+                @endphp
+                <a href="{{ route('battles.index', array_merge(request()->except(['cal_year','cal_month']), ['cal_year'=>$prevYear,'cal_month'=>$prevMonth])) }}"
+                   class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-chevron-left"></i>
+                </a>
+                <strong class="mx-2">{{ $calYear }}年{{ $calMonth }}月</strong>
+                <a href="{{ route('battles.index', array_merge(request()->except(['cal_year','cal_month']), ['cal_year'=>$nextYear,'cal_month'=>$nextMonth])) }}"
+                   class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-chevron-right"></i>
+                </a>
+            </div>
+            @php
+                $firstDay = \Carbon\Carbon::create($calYear, $calMonth, 1);
+                $daysInMonth = $firstDay->daysInMonth;
+                $startDow = $firstDay->dayOfWeek; // 0=Sun
+                $weeks = ['日','月','火','水','木','金','土'];
+            @endphp
+            <div class="table-responsive">
+                <table class="table table-bordered table-sm text-center mb-0" style="table-layout:fixed">
+                    <thead>
+                        <tr>
+                            @foreach($weeks as $wi => $wd)
+                                <th style="font-size:.8rem;{{ $wi==0?'color:#dc3545':($wi==6?'color:#0d6efd':'') }}">{{ $wd }}</th>
+                            @endforeach
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @php $day = 1; $col = $startDow; @endphp
+                    @while($day <= $daysInMonth)
+                    <tr>
+                        @for($col2 = 0; $col2 < 7; $col2++)
+                            @if(($col2 < $col && $day === 1) || $day > $daysInMonth)
+                                <td class="bg-light"></td>
+                            @else
+                                @php
+                                    $dateStr = sprintf('%04d-%02d-%02d', $calYear, $calMonth, $day);
+                                    $entry = $calData[$dateStr] ?? null;
+                                @endphp
+                                <td style="height:56px;vertical-align:top;padding:2px 3px">
+                                    <div style="font-size:.75rem;font-weight:{{ $entry ? '700' : '400' }};
+                                         color:{{ $col2==0?'#dc3545':($col2==6?'#0d6efd':'inherit') }}">{{ $day }}</div>
+                                    @if($entry)
+                                        <a href="{{ route('battles.index', array_merge(request()->except(['date_from','date_to']), ['date_from'=>$dateStr,'date_to'=>$dateStr])) }}"
+                                           class="text-decoration-none">
+                                            <div style="font-size:.65rem;line-height:1.3">
+                                                @if($entry->wins > 0)<span class="text-success">●×{{ $entry->wins }}</span>@endif
+                                                @if($entry->loses > 0)<span class="text-danger ms-1">●×{{ $entry->loses }}</span>@endif
+                                                @if($entry->draws > 0)<span class="text-muted ms-1">△×{{ $entry->draws }}</span>@endif
+                                            </div>
+                                        </a>
+                                    @endif
+                                </td>
+                                @php $day++; @endphp
+                            @endif
+                            @php if($day > $daysInMonth) break; @endphp
+                        @endfor
+                        @while($col2 < 6) <td class="bg-light"></td> @php $col2++; @endphp @endwhile
+                    </tr>
+                    @php $col = 0; @endwhile
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -128,6 +222,13 @@
                             <a href="{{ route('battles.show', $battle->id) }}" class="text-decoration-none fw-semibold">
                                 {{ $battle->title ?? 'vs '.($battle->opponent_name ?? '名無し') }}
                             </a>
+                            @if($battle->tags)
+                                <div class="mt-1">
+                                    @foreach(array_filter(array_map('trim', explode(',', $battle->tags))) as $tag)
+                                        <a href="{{ route('battles.index', ['tag' => $tag]) }}" class="badge rounded-pill bg-secondary text-decoration-none me-1" style="font-size:.7rem">{{ $tag }}</a>
+                                    @endforeach
+                                </div>
+                            @endif
                             @if($battle->memo)
                                 <div class="text-muted" style="font-size:.8rem">{{ Str::limit($battle->memo, 60) }}</div>
                             @endif
@@ -154,6 +255,42 @@
 @endsection
 @push('scripts')
 <script>
+async function exportBattlesCsv() {
+    // 全件取得（ページネーションなし）
+    let page = 1, allBattles = [];
+    while (true) {
+        const res  = await fetch(`/api/v1/battles?per_page=100&page=${page}`, {
+            headers: {'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content},
+        });
+        const data = await res.json();
+        allBattles = allBattles.concat(data.data || []);
+        if (!data.next_page_url) break;
+        page++;
+    }
+
+    const header = ['id','結果','タイトル','相手名','フォーマット','ターン数','タグ','メモ','対戦日時'];
+    const rows   = allBattles.map(b => [
+        b.id,
+        b.result || '',
+        b.title  || '',
+        b.opponent_name || '',
+        b.format || '',
+        b.turns_count ?? 0,
+        b.tags   || '',
+        (b.memo  || '').replace(/\n/g,' '),
+        b.played_at ? b.played_at.replace('T',' ').slice(0,16) : '',
+    ]);
+
+    const csv  = [header, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `battles_${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
 async function deleteBattle(id, btn) {
     if (!confirm('この対戦記録を削除しますか？')) return;
     btn.disabled = true;

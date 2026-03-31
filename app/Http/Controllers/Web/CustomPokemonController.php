@@ -42,6 +42,11 @@ class CustomPokemonController extends Controller
         return view('custom-pokemon.show', compact('cp'));
     }
 
+    public function bulk(): View
+    {
+        return view('custom-pokemon.bulk');
+    }
+
     public function edit(int $id): View
     {
         $cp = CustomPokemon::with(['pokemon', 'ability', 'item', 'moves'])

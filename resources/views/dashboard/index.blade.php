@@ -221,6 +221,57 @@
             </div>
         </div>
 
+        <!-- 月別勝率グラフ -->
+        <div class="col-md-6" data-widget-id="monthly-chart" x-show="isVisible('monthly-chart')">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <strong><i class="bi bi-graph-up"></i> 月別勝率推移</strong>
+                    <i class="bi bi-grip-vertical text-muted" x-show="editMode" style="cursor:grab"></i>
+                </div>
+                <div class="card-body">
+                    @if($monthlyStats->isNotEmpty())
+                    <canvas id="monthlyChart" height="160"></canvas>
+                    @else
+                    <div class="text-center text-muted py-4">対戦データがありません</div>
+                    @endif
+                </div>
+            </div>
+        </div>
+
+        <!-- 使用ポケモン上位 -->
+        <div class="col-md-6" data-widget-id="top-pokemon" x-show="isVisible('top-pokemon')">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <strong><i class="bi bi-star-fill text-warning"></i> 使用ポケモン上位</strong>
+                    <i class="bi bi-grip-vertical text-muted" x-show="editMode" style="cursor:grab"></i>
+                </div>
+                <div class="card-body">
+                    @if($topPokemon->isEmpty())
+                    <div class="text-center text-muted py-4">ターン記録がありません</div>
+                    @else
+                    @foreach($topPokemon as $p)
+                    <div class="d-flex align-items-center mb-2">
+                        @if($p->sprite_url)
+                            <img src="{{ $p->sprite_url }}" style="width:36px;height:36px;object-fit:contain" class="me-2">
+                        @else
+                            <div style="width:36px" class="me-2"></div>
+                        @endif
+                        <div class="flex-grow-1">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="fw-semibold" style="font-size:.9rem">{{ $p->name_ja }}</span>
+                                <span class="text-muted" style="font-size:.8rem">{{ $p->use_count }}回</span>
+                            </div>
+                            <div style="height:6px;background:#e9ecef;border-radius:3px;overflow:hidden;margin-top:2px">
+                                <div style="height:100%;border-radius:3px;background:#cc0000;width:{{ $topPokemon->first()->use_count > 0 ? round($p->use_count/$topPokemon->first()->use_count*100) : 0 }}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    @endforeach
+                    @endif
+                </div>
+            </div>
+        </div>
+
         <!-- PokeAPI インポート -->
         <div class="col-md-6" data-widget-id="import" x-show="isVisible('import')">
             <div class="card border-0 shadow-sm h-100">
@@ -256,20 +307,23 @@
 @endsection
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
 function dashboard() {
     const STORAGE_KEY = 'pokeNote_dashboard_v1';
-    const DEFAULT_WIDGETS = ['quicklinks','stats','recent-battles','my-pokemon','import','formula'];
+    const DEFAULT_WIDGETS = ['quicklinks','stats','recent-battles','my-pokemon','monthly-chart','top-pokemon','import','formula'];
 
     return {
         editMode: false,
         allWidgets: [
-            {id:'quicklinks',    label:'クイックリンク'},
-            {id:'stats',         label:'対戦統計'},
-            {id:'recent-battles',label:'最近の対戦'},
-            {id:'my-pokemon',    label:'マイポケモン'},
-            {id:'import',        label:'データインポート'},
-            {id:'formula',       label:'ダメージ計算式'},
+            {id:'quicklinks',     label:'クイックリンク'},
+            {id:'stats',          label:'対戦統計'},
+            {id:'recent-battles', label:'最近の対戦'},
+            {id:'my-pokemon',     label:'マイポケモン'},
+            {id:'monthly-chart',  label:'月別勝率グラフ'},
+            {id:'top-pokemon',    label:'使用ポケモン上位'},
+            {id:'import',         label:'データインポート'},
+            {id:'formula',        label:'ダメージ計算式'},
         ],
         visibleWidgets: [],
         sortable: null,
@@ -340,4 +394,39 @@ function dashboard() {
     };
 }
 </script>
+@if($monthlyStats->isNotEmpty())
+<script>
+(function() {
+    const monthlyData = @json($monthlyStats);
+    const ctx = document.getElementById('monthlyChart');
+    if (!ctx) return;
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: monthlyData.map(d => d.month),
+            datasets: [{
+                label: '勝率 (%)',
+                data: monthlyData.map(d => d.win_rate),
+                borderColor: '#cc0000',
+                backgroundColor: 'rgba(204,0,0,0.1)',
+                tension: 0.3,
+                fill: true,
+                pointRadius: 4,
+                pointHoverRadius: 6,
+            }],
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: { min: 0, max: 100, ticks: { callback: v => v + '%' } },
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: { callbacks: { label: ctx => ctx.parsed.y + '%（' + monthlyData[ctx.dataIndex].total + '戦）' } },
+            },
+        },
+    });
+})();
+</script>
+@endif
 @endpush

@@ -130,6 +130,36 @@
         </div>
     </div>
 
+    <!-- 進化チェーンインポート -->
+    <div class="row g-3 mt-0">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-info text-white">
+                    <strong><i class="bi bi-arrow-right-circle"></i> 進化チェーン インポート</strong>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted" style="font-size:.85rem">図鑑番号を入力してそのポケモンの進化チェーンをインポートします。<br>※ 進化前後のポケモンが先にインポートされている必要があります。</p>
+                    <div class="input-group mb-2">
+                        <input type="number" class="form-control" x-model.number="evoPokedexNum"
+                               placeholder="図鑑番号 (例: 4)" min="1" max="1025"
+                               @keydown.enter="importEvolutions()">
+                        <button class="btn btn-info text-white" @click="importEvolutions()" :disabled="loading.evo">
+                            <span x-show="loading.evo" class="spinner-border spinner-border-sm me-1"></span>
+                            取得
+                        </button>
+                    </div>
+                    <template x-if="results.evo">
+                        <div class="alert py-2 mb-0"
+                             :class="results.evo.error ? 'alert-danger' : 'alert-success'"
+                             style="font-size:.85rem">
+                            <span x-text="results.evo.error || results.evo.message"></span>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 進行ログ -->
     <div class="mt-3" x-show="log.length > 0">
         <h6 class="text-muted">実行ログ</h6>
@@ -145,12 +175,32 @@
 <script>
 function pokeImport() {
     return {
-        singlePokemon: '', bulkFrom: 1, bulkTo: 151, singleMove: '',
-        loading: {single: false, bulk: false, move: false},
-        results: {single: null, bulk: null, move: null},
+        singlePokemon: '', bulkFrom: 1, bulkTo: 151, singleMove: '', evoPokedexNum: '',
+        loading: {single: false, bulk: false, move: false, evo: false},
+        results: {single: null, bulk: null, move: null, evo: null},
         log: [],
 
         addLog(msg) { this.log.unshift(`[${new Date().toLocaleTimeString()}] ${msg}`); },
+
+        // 共通ヘッダー
+        headers() {
+            return {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+            };
+        },
+
+        // レスポンスをJSONとして安全に取得
+        async safeJson(res) {
+            const text = await res.text();
+            try {
+                return JSON.parse(text);
+            } catch {
+                console.error('Non-JSON response (HTTP ' + res.status + '):', text.slice(0, 300));
+                return {error: `通信エラー (HTTP ${res.status})`};
+            }
+        },
 
         async importSinglePokemon() {
             if (!this.singlePokemon.trim()) return;
@@ -159,10 +209,10 @@ function pokeImport() {
             try {
                 const res = await fetch('/api/v1/import/pokemon', {
                     method: 'POST',
-                    headers: {'Content-Type':'application/json','X-CSRF-TOKEN':document.querySelector('meta[name="csrf-token"]').content},
+                    headers: this.headers(),
                     body: JSON.stringify({id_or_name: this.singlePokemon}),
                 });
-                const data = await res.json();
+                const data = await this.safeJson(res);
                 this.results.single = data;
                 if (!data.error) this.addLog(`✓ ${data.name_ja} (#${data.pokedex_number}) インポート完了`);
                 else this.addLog(`✗ エラー: ${data.error}`);
@@ -177,12 +227,13 @@ function pokeImport() {
             try {
                 const res = await fetch('/api/v1/import/pokemon/bulk', {
                     method: 'POST',
-                    headers: {'Content-Type':'application/json','X-CSRF-TOKEN':document.querySelector('meta[name="csrf-token"]').content},
+                    headers: this.headers(),
                     body: JSON.stringify({from: this.bulkFrom, to: this.bulkTo}),
                 });
-                const data = await res.json();
+                const data = await this.safeJson(res);
                 this.results.bulk = data;
-                this.addLog(`✓ 成功: ${data.success?.length}件, 失敗: ${data.failed?.length}件`);
+                if (!data.error) this.addLog(`✓ 成功: ${data.success?.length}件, 失敗: ${data.failed?.length}件`);
+                else this.addLog(`✗ エラー: ${data.error}`);
             } catch (e) { this.addLog(`✗ エラー: ${e.message}`); }
             this.loading.bulk = false;
         },
@@ -194,15 +245,33 @@ function pokeImport() {
             try {
                 const res = await fetch('/api/v1/import/move', {
                     method: 'POST',
-                    headers: {'Content-Type':'application/json','X-CSRF-TOKEN':document.querySelector('meta[name="csrf-token"]').content},
+                    headers: this.headers(),
                     body: JSON.stringify({id_or_name: this.singleMove}),
                 });
-                const data = await res.json();
+                const data = await this.safeJson(res);
                 this.results.move = data;
                 if (!data.error) this.addLog(`✓ わざ「${data.name_ja}」インポート完了`);
                 else this.addLog(`✗ エラー: ${data.error}`);
             } catch (e) { this.results.move = {error: e.message}; }
             this.loading.move = false;
+        },
+
+        async importEvolutions() {
+            if (!this.evoPokedexNum) return;
+            this.loading.evo = true;
+            this.results.evo = null;
+            try {
+                const res = await fetch('/api/v1/import/evolutions', {
+                    method: 'POST',
+                    headers: this.headers(),
+                    body: JSON.stringify({pokemon_id: this.evoPokedexNum}),
+                });
+                const data = await this.safeJson(res);
+                this.results.evo = data;
+                if (!data.error) this.addLog(`✓ 進化チェーンインポート完了: ${data.count}件`);
+                else this.addLog(`✗ エラー: ${data.error}`);
+            } catch (e) { this.results.evo = {error: e.message}; }
+            this.loading.evo = false;
         },
     };
 }

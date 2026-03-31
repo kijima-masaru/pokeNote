@@ -23,8 +23,10 @@ class DamageCalcRequest extends FormRequest
             'defender_rank.*' => 'integer|min:-6|max:6',
             'weather'         => 'nullable|string|in:none,sunny,rainy,sandstorm,hail,snow',
             'terrain'         => 'nullable|string|in:none,grassy,electric,misty,psychic',
-            'is_critical'     => 'nullable|boolean',
-            'other_modifiers' => 'nullable|array',
+            'is_critical'        => 'nullable|boolean',
+            'other_modifiers'    => 'nullable|array',
+            'extra_damage'       => 'nullable|array',
+            'defender_hp_percent'=> 'nullable|numeric|min:0.01|max:1',
         ];
     }
 }

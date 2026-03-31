@@ -21,4 +21,10 @@ class PokemonController extends Controller
         $pokemon = Pokemon::with(['types', 'abilities', 'moves'])->findOrFail($id);
         return view('pokemon.show', compact('pokemon'));
     }
+
+    public function typeChart(): View
+    {
+        $types = PokemonType::cases();
+        return view('pokemon.type-chart', compact('types'));
+    }
 }

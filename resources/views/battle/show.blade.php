@@ -36,19 +36,56 @@
     <div class="mb-3">
         <template x-if="!editingMemo">
             <div class="d-flex align-items-start gap-2">
-                <span class="text-muted" style="font-size:.9rem" x-text="memo || 'メモなし'"></span>
-                <button class="btn btn-sm btn-link p-0 text-secondary" @click="editingMemo=true" title="メモを編集">
+                <div class="text-muted flex-grow-1" style="font-size:.9rem;line-height:1.6"
+                     x-show="memo"
+                     x-html="renderMarkdown(memo)"></div>
+                <span x-show="!memo" class="text-muted" style="font-size:.9rem">メモなし</span>
+                <button class="btn btn-sm btn-link p-0 text-secondary flex-shrink-0" @click="editingMemo=true" title="メモを編集（Markdown対応）">
                     <i class="bi bi-pencil-square"></i>
                 </button>
             </div>
         </template>
         <template x-if="editingMemo">
             <div class="d-flex gap-2 align-items-start">
-                <textarea class="form-control form-control-sm" x-model="memo" rows="2" style="font-size:.9rem"></textarea>
+                <div class="flex-grow-1">
+                    <textarea class="form-control form-control-sm" x-model="memo" rows="4"
+                              style="font-size:.9rem;font-family:monospace"
+                              placeholder="Markdown記法が使えます（# 見出し, **太字**, - リスト など）"></textarea>
+                    <div x-show="memo" class="border rounded p-2 mt-1 bg-light" style="font-size:.85rem">
+                        <small class="text-muted d-block mb-1">プレビュー</small>
+                        <div x-html="renderMarkdown(memo)" style="line-height:1.6"></div>
+                    </div>
+                </div>
                 <div class="d-flex flex-column gap-1">
                     <button class="btn btn-sm btn-success" @click="saveMemo()">保存</button>
                     <button class="btn btn-sm btn-outline-secondary" @click="editingMemo=false">取消</button>
                 </div>
+            </div>
+        </template>
+    </div>
+
+    <!-- タグ -->
+    <div class="mb-3">
+        <template x-if="!editingTags">
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <template x-if="tags.length === 0">
+                    <span class="text-muted" style="font-size:.85rem">タグなし</span>
+                </template>
+                <template x-for="tag in tags" :key="tag">
+                    <span class="badge rounded-pill bg-secondary" x-text="tag"></span>
+                </template>
+                <button class="btn btn-sm btn-link p-0 text-secondary ms-1" @click="editingTags=true;tagsInput=tags.join(', ')" title="タグを編集">
+                    <i class="bi bi-tag"></i>
+                </button>
+            </div>
+        </template>
+        <template x-if="editingTags">
+            <div class="d-flex gap-2 align-items-center">
+                <input type="text" class="form-control form-control-sm" x-model="tagsInput"
+                       placeholder="タグをカンマ区切りで入力（例: ランクマッチ,受け崩し）"
+                       @keydown.enter.prevent="saveTags()">
+                <button class="btn btn-sm btn-success" @click="saveTags()">保存</button>
+                <button class="btn btn-sm btn-outline-secondary" @click="editingTags=false">取消</button>
             </div>
         </template>
     </div>
@@ -146,6 +183,94 @@
                     </div>
                 </div>
                 <div x-show="recognitionMessage" class="mt-2 text-muted" style="font-size:.78rem" x-text="recognitionMessage"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- タイプ相性サマリー -->
+    <div class="card border-0 shadow-sm mb-3" x-show="opponentTypeSummary.length > 0">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center"
+             style="cursor:pointer" @click="typeSummaryOpen=!typeSummaryOpen">
+            <strong><i class="bi bi-grid-3x3 text-danger"></i> 相手タイプ相性サマリー</strong>
+            <i class="bi" :class="typeSummaryOpen?'bi-chevron-up':'bi-chevron-down'"></i>
+        </div>
+        <div x-show="typeSummaryOpen" x-collapse>
+            <div class="card-body">
+                <p class="text-muted mb-2" style="font-size:.8rem">相手ポケモンへの攻撃で効果が高いタイプ（×2以上）と弱いタイプ（×0.5以下）を集計します。</p>
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <div class="fw-semibold mb-1" style="font-size:.85rem"><span class="text-success">◎ 有利タイプ（×2以上のポケモン数）</span></div>
+                        <div class="d-flex flex-wrap gap-1">
+                            <template x-for="entry in opponentTypeSummary.filter(e=>e.superEffective>0).sort((a,b)=>b.superEffective-a.superEffective)" :key="entry.type">
+                                <div class="d-flex align-items-center gap-1 border rounded px-2 py-1" style="font-size:.8rem">
+                                    <span :class="'type-badge type-'+entry.type" x-text="typeLabel(entry.type)"></span>
+                                    <span class="fw-bold text-success" x-text="'×'+entry.superEffective"></span>
+                                </div>
+                            </template>
+                            <span x-show="opponentTypeSummary.filter(e=>e.superEffective>0).length===0" class="text-muted" style="font-size:.8rem">なし</span>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="fw-semibold mb-1" style="font-size:.85rem"><span class="text-danger">△ 不利タイプ（×0.5以下のポケモン数）</span></div>
+                        <div class="d-flex flex-wrap gap-1">
+                            <template x-for="entry in opponentTypeSummary.filter(e=>e.notVeryEffective>0).sort((a,b)=>b.notVeryEffective-a.notVeryEffective)" :key="entry.type">
+                                <div class="d-flex align-items-center gap-1 border rounded px-2 py-1" style="font-size:.8rem">
+                                    <span :class="'type-badge type-'+entry.type" x-text="typeLabel(entry.type)"></span>
+                                    <span class="fw-bold text-danger" x-text="'×'+entry.notVeryEffective"></span>
+                                </div>
+                            </template>
+                            <span x-show="opponentTypeSummary.filter(e=>e.notVeryEffective>0).length===0" class="text-muted" style="font-size:.8rem">なし</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 対戦レポート（折りたたみ） -->
+    <div class="card border-0 shadow-sm mb-3" x-show="turns.length > 0">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center"
+             style="cursor:pointer" @click="reportOpen = !reportOpen">
+            <strong><i class="bi bi-bar-chart-line"></i> 対戦レポート</strong>
+            <i class="bi" :class="reportOpen ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
+        </div>
+        <div x-show="reportOpen" x-collapse>
+            <div class="card-body">
+                <div class="row g-3">
+                    <!-- HP推移グラフ -->
+                    <div class="col-12">
+                        <canvas id="hpChart" height="120"></canvas>
+                    </div>
+                    <!-- 使用技頻度 -->
+                    <div class="col-md-6">
+                        <small class="fw-bold text-success d-block mb-2"><i class="bi bi-person"></i> 自分の使用技</small>
+                        <template x-for="[move, cnt] in myMoveUsage" :key="move">
+                            <div class="d-flex align-items-center mb-1 gap-2">
+                                <span style="font-size:.8rem;min-width:100px" x-text="move"></span>
+                                <div class="flex-grow-1" style="height:8px;background:#e9ecef;border-radius:4px;overflow:hidden">
+                                    <div style="height:100%;border-radius:4px;background:#198754"
+                                         :style="'width:'+Math.round(cnt/turns.length*100)+'%'"></div>
+                                </div>
+                                <span style="font-size:.75rem;color:#6c757d;min-width:30px" x-text="cnt+'回'"></span>
+                            </div>
+                        </template>
+                        <div x-show="myMoveUsage.length === 0" class="text-muted" style="font-size:.85rem">技記録なし</div>
+                    </div>
+                    <div class="col-md-6">
+                        <small class="fw-bold text-danger d-block mb-2"><i class="bi bi-person-fill"></i> 相手の使用技</small>
+                        <template x-for="[move, cnt] in oppMoveUsage" :key="move">
+                            <div class="d-flex align-items-center mb-1 gap-2">
+                                <span style="font-size:.8rem;min-width:100px" x-text="move"></span>
+                                <div class="flex-grow-1" style="height:8px;background:#e9ecef;border-radius:4px;overflow:hidden">
+                                    <div style="height:100%;border-radius:4px;background:#dc3545"
+                                         :style="'width:'+Math.round(cnt/turns.length*100)+'%'"></div>
+                                </div>
+                                <span style="font-size:.75rem;color:#6c757d;min-width:30px" x-text="cnt+'回'"></span>
+                            </div>
+                        </template>
+                        <div x-show="oppMoveUsage.length === 0" class="text-muted" style="font-size:.85rem">技記録なし</div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -274,8 +399,9 @@
                 <div class="col-md-5">
                     <div class="fw-semibold text-success mb-1" style="font-size:.85rem"><i class="bi bi-person"></i> 自分</div>
                     <div class="mb-1">
-                        <select class="form-select form-select-sm" x-model="newTurn.my_pokemon_id"
-                                @change="loadMyMoves()">
+                        <select id="turn-my-pokemon" class="form-select form-select-sm" x-model="newTurn.my_pokemon_id"
+                                @change="loadMyMoves()"
+                                @keydown.tab.prevent="focusNext('turn-my-move')">
                             <option value="">ポケモン選択</option>
                             @foreach($myPokemonList as $cp)
                                 <option value="{{ $cp->id }}">{{ $cp->display_name }}</option>
@@ -283,8 +409,9 @@
                         </select>
                     </div>
                     <div class="mb-1">
-                        <select class="form-select form-select-sm" x-model="newTurn.my_move_id"
-                                :disabled="myMoves.length===0">
+                        <select id="turn-my-move" class="form-select form-select-sm" x-model="newTurn.my_move_id"
+                                :disabled="myMoves.length===0"
+                                @keydown.tab.prevent="focusNext('turn-my-hp')">
                             <option value="">技を選択</option>
                             <template x-for="m in myMoves" :key="m.id">
                                 <option :value="m.id" x-text="m.name_ja"></option>
@@ -293,8 +420,11 @@
                     </div>
                     <div class="d-flex align-items-center gap-2">
                         <label style="font-size:.75rem;white-space:nowrap">自HP%</label>
-                        <input type="range" class="form-range" min="0" max="100"
-                               x-model.number="newTurn.my_hp_remaining">
+                        <input id="turn-my-hp" type="range" class="form-range" min="0" max="100" step="5"
+                               x-model.number="newTurn.my_hp_remaining"
+                               @keydown.left.prevent="newTurn.my_hp_remaining = Math.max(0, newTurn.my_hp_remaining-5)"
+                               @keydown.right.prevent="newTurn.my_hp_remaining = Math.min(100, newTurn.my_hp_remaining+5)"
+                               @keydown.tab.prevent="focusNext('turn-opp-pokemon')">
                         <span style="width:38px;font-size:.8rem" x-text="newTurn.my_hp_remaining+'%'"></span>
                     </div>
                 </div>
@@ -303,10 +433,11 @@
                 <div class="col-md-5">
                     <div class="fw-semibold text-danger mb-1" style="font-size:.85rem"><i class="bi bi-person-fill"></i> 相手</div>
                     <div class="mb-1">
-                        <input type="text" class="form-control form-control-sm"
+                        <input id="turn-opp-pokemon" type="text" class="form-control form-control-sm"
                                x-model="newTurn.opponent_pokemon_name"
                                placeholder="相手のポケモン名"
-                               list="pokemon-datalist">
+                               list="pokemon-datalist"
+                               @keydown.tab.prevent="focusNext('turn-opp-move-search')">
                         <datalist id="pokemon-datalist">
                             @foreach($myPokemonList as $cp)
                                 <option value="{{ $cp->pokemon->name_ja }}">
@@ -315,11 +446,13 @@
                     </div>
                     <div class="mb-1">
                         <div class="input-group input-group-sm">
-                            <input type="text" class="form-control" placeholder="技名で検索..."
+                            <input id="turn-opp-move-search" type="text" class="form-control" placeholder="技名で検索..."
                                    x-model="opponentMoveSearch"
-                                   @input.debounce.400ms="searchOpponentMoves()">
+                                   @input.debounce.400ms="searchOpponentMoves()"
+                                   @keydown.tab.prevent="focusNext('turn-opp-move-select')">
                         </div>
-                        <select class="form-select form-select-sm mt-1" x-model="newTurn.opponent_move_id">
+                        <select id="turn-opp-move-select" class="form-select form-select-sm mt-1" x-model="newTurn.opponent_move_id"
+                                @keydown.tab.prevent="focusNext('turn-opp-hp')">
                             <option value="">技を選択</option>
                             <template x-for="m in opponentMoveResults" :key="m.id">
                                 <option :value="m.id" x-text="m.name_ja"></option>
@@ -328,8 +461,11 @@
                     </div>
                     <div class="d-flex align-items-center gap-2">
                         <label style="font-size:.75rem;white-space:nowrap">相手HP%</label>
-                        <input type="range" class="form-range" min="0" max="100"
-                               x-model.number="newTurn.opponent_hp_remaining">
+                        <input id="turn-opp-hp" type="range" class="form-range" min="0" max="100" step="5"
+                               x-model.number="newTurn.opponent_hp_remaining"
+                               @keydown.left.prevent="newTurn.opponent_hp_remaining = Math.max(0, newTurn.opponent_hp_remaining-5)"
+                               @keydown.right.prevent="newTurn.opponent_hp_remaining = Math.min(100, newTurn.opponent_hp_remaining+5)"
+                               @keydown.tab.prevent="focusNext('turn-description')">
                         <span style="width:38px;font-size:.8rem" x-text="newTurn.opponent_hp_remaining+'%'"></span>
                     </div>
                 </div>
@@ -341,9 +477,18 @@
                 </div>
 
                 <div class="col-12">
-                    <textarea class="form-control form-control-sm" x-model="newTurn.description"
+                    <textarea id="turn-description" class="form-control form-control-sm" x-model="newTurn.description"
                               rows="1" placeholder="メモ（任意） - Ctrl+Enter で追加"
-                              @keydown.ctrl.enter.prevent="addTurn()"></textarea>
+                              @keydown.ctrl.enter.prevent="addTurn()"
+                              @keydown.shift.tab.prevent="focusNext('turn-opp-hp')"></textarea>
+                </div>
+                <div class="col-12">
+                    <small class="text-muted">
+                        <kbd>Tab</kbd> 次フィールド &nbsp;
+                        <kbd>Shift+Tab</kbd> 前フィールド &nbsp;
+                        <kbd>←</kbd><kbd>→</kbd> HPスライダー±5% &nbsp;
+                        <kbd>Ctrl+Enter</kbd> ターン追加
+                    </small>
                 </div>
             </div>
         </div>
@@ -351,6 +496,8 @@
 </div>
 @endsection
 @push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js"></script>
 <script>
 function battleShow(battleId) {
     return {
@@ -372,6 +519,9 @@ function battleShow(battleId) {
         battleResult: '{{ $battle->result ?? '' }}',
         memo: @json($battle->memo ?? ''),
         editingMemo: false,
+        tags: @json(array_filter(array_map('trim', explode(',', $battle->tags ?? '')))),
+        editingTags: false,
+        tagsInput: '{{ $battle->tags ?? '' }}',
         newTurn: {my_pokemon_id:'',opponent_pokemon_name:'',my_move_id:'',opponent_move_id:'',
                   my_hp_remaining:100,opponent_hp_remaining:100,description:''},
         myMoves: [],
@@ -397,12 +547,136 @@ function battleShow(battleId) {
         recognitionResults: [],
         recognitionMessage: '',
         recognizing: false,
+        reportOpen: false,
+        hpChartInstance: null,
+        typeSummaryOpen: true,
+
+        typeLabel(t) {
+            const m = {normal:'ノーマル',fire:'ほのお',water:'みず',electric:'でんき',grass:'くさ',
+                ice:'こおり',fighting:'かくとう',poison:'どく',ground:'じめん',flying:'ひこう',
+                psychic:'エスパー',bug:'むし',rock:'いわ',ghost:'ゴースト',dragon:'ドラゴン',
+                dark:'あく',steel:'はがね',fairy:'フェアリー'};
+            return m[t] || t;
+        },
+
+        // タイプ相性表 (攻撃タイプ → 防御タイプ → 倍率)
+        typeChart: {
+            normal:   {rock:.5,ghost:0,steel:.5},
+            fire:     {fire:.5,water:.5,rock:.5,grass:2,ice:2,bug:2,dragon:.5,steel:2},
+            water:    {fire:2,water:.5,grass:.5,ground:2,rock:2,dragon:.5},
+            electric: {water:2,electric:.5,grass:.5,ground:0,flying:2,dragon:.5},
+            grass:    {fire:.5,water:2,grass:.5,poison:.5,ground:2,flying:.5,bug:.5,rock:2,dragon:.5,steel:.5},
+            ice:      {fire:.5,water:.5,grass:2,ice:.5,ground:2,flying:2,dragon:2,steel:.5},
+            fighting: {normal:2,ice:2,poison:.5,flying:.5,psychic:.5,bug:.5,rock:2,ghost:0,dark:2,steel:2,fairy:.5},
+            poison:   {grass:2,poison:.5,ground:.5,rock:.5,ghost:.5,steel:0,fairy:2},
+            ground:   {fire:2,electric:2,grass:.5,poison:2,flying:0,bug:.5,rock:2,steel:2},
+            flying:   {electric:.5,grass:2,fighting:2,bug:2,rock:.5,steel:.5},
+            psychic:  {fighting:2,poison:2,psychic:.5,dark:0,steel:.5},
+            bug:      {fire:.5,grass:2,fighting:.5,flying:.5,psychic:2,ghost:.5,dark:2,steel:.5,fairy:.5},
+            rock:     {fire:2,ice:2,fighting:.5,ground:.5,flying:2,bug:2,steel:.5},
+            ghost:    {normal:0,psychic:2,ghost:2,dark:.5},
+            dragon:   {dragon:2,steel:.5,fairy:0},
+            dark:     {fighting:.5,psychic:2,ghost:2,dark:.5,fairy:.5},
+            steel:    {fire:.5,water:.5,electric:.5,ice:2,rock:2,steel:.5,fairy:2},
+            fairy:    {fire:.5,fighting:2,poison:.5,dragon:2,dark:2,steel:.5},
+        },
+
+        calcTypeEffectiveness(atkType, defTypes) {
+            let mult = 1;
+            for (const dt of defTypes) {
+                const row = this.typeChart[atkType] || {};
+                mult *= (row[dt] !== undefined ? row[dt] : 1);
+            }
+            return mult;
+        },
+
+        get opponentTypeSummary() {
+            const allTypes = ['normal','fire','water','electric','grass','ice','fighting','poison',
+                              'ground','flying','psychic','bug','rock','ghost','dragon','dark','steel','fairy'];
+            const result = allTypes.map(t => ({type: t, superEffective: 0, notVeryEffective: 0}));
+            const mons = this.opponentPokemon.filter(op => op.pokemon && op.pokemon.types && op.pokemon.types.length > 0);
+            if (mons.length === 0) return [];
+            for (const op of mons) {
+                const defTypes = op.pokemon.types.map(t => t.type);
+                for (const entry of result) {
+                    const mult = this.calcTypeEffectiveness(entry.type, defTypes);
+                    if (mult >= 2) entry.superEffective++;
+                    else if (mult <= 0.5) entry.notVeryEffective++;
+                }
+            }
+            return result.filter(e => e.superEffective > 0 || e.notVeryEffective > 0);
+        },
 
         get nextTurnNumber() {
             return this.turns.length > 0 ? Math.max(...this.turns.map(t=>t.turn_number))+1 : 1;
         },
 
-        init() {},
+        renderMarkdown(text) {
+            if (!text) return '';
+            if (window.marked) return marked.parse(text, { breaks: true, gfm: true });
+            // marked未読込の場合は改行のみ変換
+            return text.replace(/\n/g, '<br>');
+        },
+
+        focusNext(id) {
+            const el = document.getElementById(id);
+            if (el) { el.focus(); if (el.select) el.select(); }
+        },
+
+        // レポート: 使用技集計
+        get myMoveUsage() {
+            const cnt = {};
+            this.turns.forEach(t => {
+                if (t.my_move?.name_ja) cnt[t.my_move.name_ja] = (cnt[t.my_move.name_ja]||0)+1;
+            });
+            return Object.entries(cnt).sort((a,b)=>b[1]-a[1]).slice(0,6);
+        },
+        get oppMoveUsage() {
+            const cnt = {};
+            this.turns.forEach(t => {
+                if (t.opponent_move?.name_ja) cnt[t.opponent_move.name_ja] = (cnt[t.opponent_move.name_ja]||0)+1;
+            });
+            return Object.entries(cnt).sort((a,b)=>b[1]-a[1]).slice(0,6);
+        },
+
+        initHpChart() {
+            if (!window.Chart) return;
+            const ctx = document.getElementById('hpChart');
+            if (!ctx) return;
+            if (this.hpChartInstance) this.hpChartInstance.destroy();
+            const labels = this.turns.map(t => 'T'+t.turn_number);
+            this.hpChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [
+                        {
+                            label: '自分HP%',
+                            data: this.turns.map(t => t.my_hp_remaining ?? null),
+                            borderColor: '#198754', backgroundColor: 'rgba(25,135,84,.1)',
+                            tension: 0.3, fill: true, spanGaps: true, pointRadius: 3,
+                        },
+                        {
+                            label: '相手HP%',
+                            data: this.turns.map(t => t.opponent_hp_remaining ?? null),
+                            borderColor: '#dc3545', backgroundColor: 'rgba(220,53,69,.1)',
+                            tension: 0.3, fill: true, spanGaps: true, pointRadius: 3,
+                        },
+                    ],
+                },
+                options: {
+                    responsive: true,
+                    scales: { y: { min: 0, max: 100, ticks: { callback: v => v+'%' } } },
+                    plugins: { legend: { position: 'bottom' } },
+                },
+            });
+        },
+
+        init() {
+            this.$watch('reportOpen', val => {
+                if (val) this.$nextTick(() => this.initHpChart());
+            });
+        },
 
         // 相手ポケモン
         getOpponentSlot(slot) {
@@ -517,6 +791,19 @@ function battleShow(battleId) {
                 body: JSON.stringify({memo: this.memo}),
             });
             this.editingMemo = false;
+        },
+
+        async saveTags() {
+            const res = await fetch(`/api/v1/battles/${this.battleId}`, {
+                method: 'PUT',
+                headers: {'Content-Type':'application/json','X-CSRF-TOKEN':document.querySelector('meta[name=csrf-token]').content},
+                body: JSON.stringify({tags: this.tagsInput}),
+            });
+            if (res.ok) {
+                this.tags = this.tagsInput.split(',').map(t=>t.trim()).filter(t=>t);
+                this.editingTags = false;
+                if (window.showToast) showToast('タグを保存しました');
+            }
         },
 
         async deleteBattle() {

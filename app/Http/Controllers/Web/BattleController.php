@@ -31,6 +31,9 @@ class BattleController extends Controller
         if ($request->filled('date_to')) {
             $query->whereDate('played_at', '<=', $request->date_to);
         }
+        if ($request->filled('tag')) {
+            $query->where('tags', 'like', '%' . $request->tag . '%');
+        }
 
         $battles = $query->latest('played_at')->paginate(15)->withQueryString();
 
@@ -56,7 +59,20 @@ class BattleController extends Controller
                 return $row;
             });
 
-        return view('battle.index', compact('battles', 'opponentStats'));
+        // カレンダービュー用: 今月の対戦データ（日別集計）
+        $calYear  = (int) $request->get('cal_year',  now()->year);
+        $calMonth = (int) $request->get('cal_month', now()->month);
+        $calData  = Battle::where('user_id', Auth::id())
+            ->whereYear('played_at', $calYear)
+            ->whereMonth('played_at', $calMonth)
+            ->selectRaw('DATE(played_at) as date, COUNT(*) as total,
+                SUM(result="win") as wins, SUM(result="lose") as loses, SUM(result="draw") as draws')
+            ->groupBy('date')
+            ->orderBy('date')
+            ->get()
+            ->keyBy('date');
+
+        return view('battle.index', compact('battles', 'opponentStats', 'calData', 'calYear', 'calMonth'));
     }
 
     public function create(): View

@@ -3,16 +3,37 @@
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h4 class="mb-0"><i class="bi bi-collection"></i> ポケモン図鑑</h4>
+    <div class="d-flex gap-2 align-items-center">
+        <div class="form-check form-switch mb-0">
+            <input class="form-check-input" type="checkbox" id="favOnly" onchange="fetchPokemon(1)">
+            <label class="form-check-label" for="favOnly" style="font-size:.85rem">
+                <i class="bi bi-star-fill text-warning"></i> お気に入りのみ
+            </label>
+        </div>
+    </div>
 </div>
 <div class="card border-0 shadow-sm mb-3">
     <div class="card-body py-2">
         <div class="row g-2 align-items-end">
-            <div class="col-md-4">
-                <input type="text" id="searchName" class="form-control form-control-sm" placeholder="名前で検索...">
+            <div class="col-md-4" style="position:relative">
+                <input type="text" id="searchName" class="form-control form-control-sm" placeholder="名前で検索..."
+                       autocomplete="off" @focus="showHistory=true" @blur="setTimeout(()=>showHistory=false,200)"
+                       x-data="{showHistory:false}"
+                       @input="showHistory=true">
+                <div id="searchHistoryList" class="list-group position-absolute w-100 shadow-sm" style="z-index:999;top:100%;display:none">
+                </div>
             </div>
-            <div class="col-md-3">
+            <div class="col-md-2">
                 <select id="searchType" class="form-select form-select-sm">
-                    <option value="">すべてのタイプ</option>
+                    <option value="">タイプ1</option>
+                    @foreach($types as $type)
+                        <option value="{{ $type->value }}">{{ $type->label() }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select id="searchType2" class="form-select form-select-sm">
+                    <option value="">タイプ2</option>
                     @foreach($types as $type)
                         <option value="{{ $type->value }}">{{ $type->label() }}</option>
                     @endforeach
@@ -24,6 +45,13 @@
                     <option value="0">通常のみ</option>
                     <option value="1">メガシンカのみ</option>
                 </select>
+            </div>
+            <div class="col-md-2">
+                <div class="d-flex gap-1 align-items-center">
+                    <input type="number" id="bstMin" class="form-control form-control-sm" placeholder="BST下限" min="0" max="1200">
+                    <span style="font-size:.8rem">〜</span>
+                    <input type="number" id="bstMax" class="form-control form-control-sm" placeholder="上限" min="0" max="1200">
+                </div>
             </div>
             <div class="col-md-2">
                 <select id="sortCol" class="form-select form-select-sm">
@@ -53,8 +81,18 @@
 let currentPage = 1;
 const searchName = document.getElementById('searchName');
 const searchType = document.getElementById('searchType');
+const searchType2= document.getElementById('searchType2');
 const filterMega = document.getElementById('filterMega');
+const bstMin     = document.getElementById('bstMin');
+const bstMax     = document.getElementById('bstMax');
+const sortCol    = document.getElementById('sortCol');
+const sortDir    = document.getElementById('sortDir');
 
+const sortColLabels = {
+    pokedex_number:'図鑑No', base_hp:'HP', base_attack:'攻撃',
+    base_defense:'防御', base_sp_attack:'特攻', base_sp_defense:'特防', base_speed:'素早さ'
+};
+function sortLabel(col) { return sortColLabels[col] || col; }
 const typeLabels = {
     normal:'ノーマル',fire:'ほのお',water:'みず',electric:'でんき',grass:'くさ',
     ice:'こおり',fighting:'かくとう',poison:'どく',ground:'じめん',flying:'ひこう',
@@ -66,9 +104,14 @@ async function fetchPokemon(page = 1) {
     const params = new URLSearchParams({ page, per_page: 40 });
     const name = searchName.value.trim();
     const type = searchType.value;
-    if (name) params.set('name', name);
+    if (name) { params.set('name', name); saveHistory(name); }
     if (type) params.set('type', type);
+    if (searchType2.value) params.set('type2', searchType2.value);
     if (filterMega.value !== '') params.set('is_mega', filterMega.value);
+    if (bstMin.value) params.set('bst_min', bstMin.value);
+    if (bstMax.value) params.set('bst_max', bstMax.value);
+    params.set('sort', sortCol.value);
+    params.set('sort_dir', sortDir.value);
 
     const res = await fetch(`/api/v1/pokemon?${params}`);
     const data = await res.json();
@@ -82,23 +125,44 @@ function renderGrid(pokemon) {
         grid.innerHTML = '<div class="col-12 text-center text-muted py-5">ポケモンが見つかりません</div>';
         return;
     }
+    // お気に入りフィルタ
+    const favOnly = document.getElementById('favOnly').checked;
+    if (favOnly) {
+        const favs = getFavorites();
+        pokemon = pokemon.filter(p => favs.includes(p.id));
+    }
+
+    if (!pokemon || pokemon.length === 0) {
+        grid.innerHTML = '<div class="col-12 text-center text-muted py-5">ポケモンが見つかりません</div>';
+        return;
+    }
+
     grid.innerHTML = pokemon.map(p => `
         <div class="col-6 col-md-3 col-lg-2">
-            <a href="/pokemon/${p.id}" class="text-decoration-none text-dark">
-                <div class="card border-0 shadow-sm pokemon-card p-2 text-center h-100">
-                    <div style="height:64px;display:flex;align-items:center;justify-content:center">
-                        ${p.sprite_url
-                            ? `<img src="${p.sprite_url}" style="max-height:64px;max-width:64px">`
-                            : `<i class="bi bi-question-circle text-muted" style="font-size:2rem"></i>`}
+            <div style="position:relative">
+                <a href="/pokemon/${p.id}" class="text-decoration-none text-dark">
+                    <div class="card border-0 shadow-sm pokemon-card p-2 text-center h-100">
+                        <div style="height:64px;display:flex;align-items:center;justify-content:center">
+                            ${p.sprite_url
+                                ? `<img src="${p.sprite_url}" style="max-height:64px;max-width:64px">`
+                                : `<i class="bi bi-question-circle text-muted" style="font-size:2rem"></i>`}
+                        </div>
+                        <div style="font-size:.65rem;color:#6c757d">#${String(p.pokedex_number).padStart(4,'0')}${p.is_mega ? ' <span class="badge bg-warning text-dark" style="font-size:.6rem">メガ</span>' : ''}</div>
+                        <div class="fw-semibold" style="font-size:.85rem">${p.name_ja}</div>
+                        <div class="mt-1">
+                            ${(p.types||[]).map(t=>`<span class="type-badge type-${t.type}">${typeLabels[t.type]||t.type}</span>`).join(' ')}
+                        </div>
+                        <div class="mt-1" style="font-size:.7rem;color:#6c757d">
+                            合計: ${p.base_total}
+                            ${sortCol.value !== 'pokedex_number' ? `<span style="color:#0d6efd;font-weight:600"> (${sortLabel(sortCol.value)}:${p[sortCol.value.replace('base_','')]})</span>` : ''}
+                        </div>
                     </div>
-                    <div style="font-size:.65rem;color:#6c757d">#${String(p.pokedex_number).padStart(4,'0')}${p.is_mega ? ' <span class="badge bg-warning text-dark" style="font-size:.6rem">メガ</span>' : ''}</div>
-                    <div class="fw-semibold" style="font-size:.85rem">${p.name_ja}</div>
-                    <div class="mt-1">
-                        ${(p.types||[]).map(t=>`<span class="type-badge type-${t.type}">${typeLabels[t.type]||t.type}</span>`).join(' ')}
-                    </div>
-                    <div class="mt-1" style="font-size:.7rem;color:#6c757d">合計: ${p.base_total}</div>
-                </div>
-            </a>
+                </a>
+                <button onclick="toggleFavorite(${p.id}, this)" title="お気に入り"
+                        style="position:absolute;top:6px;right:6px;border:none;background:none;padding:0;cursor:pointer;font-size:1rem;z-index:10">
+                    <i class="bi ${getFavorites().includes(p.id) ? 'bi-star-fill text-warning' : 'bi-star text-muted'}"></i>
+                </button>
+            </div>
         </div>
     `).join('');
 }
@@ -117,6 +181,59 @@ function renderPagination(data) {
 
 function goPage(page) { currentPage = page; fetchPokemon(page); }
 
+// 検索履歴（localStorage）
+const HISTORY_KEY = 'pokeNote_pokemonSearchHistory';
+const MAX_HISTORY = 8;
+
+function getHistory() {
+    try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch { return []; }
+}
+function saveHistory(term) {
+    if (!term.trim()) return;
+    let h = getHistory().filter(v => v !== term);
+    h.unshift(term);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(h.slice(0, MAX_HISTORY)));
+}
+function renderHistory() {
+    const list = document.getElementById('searchHistoryList');
+    const term = searchName.value.trim();
+    const history = getHistory().filter(v => !term || v.includes(term));
+    if (history.length === 0) { list.style.display = 'none'; return; }
+    list.innerHTML = history.map(h =>
+        `<button class="list-group-item list-group-item-action py-1 d-flex justify-content-between align-items-center"
+                 style="font-size:.85rem" onclick="applyHistory('${h.replace(/'/g,"\\'")}')">
+            <span><i class="bi bi-clock-history text-muted me-2"></i>${h}</span>
+         </button>`
+    ).join('');
+    list.style.display = 'block';
+}
+function applyHistory(term) {
+    searchName.value = term;
+    document.getElementById('searchHistoryList').style.display = 'none';
+    currentPage = 1; fetchPokemon(1);
+}
+
+searchName.addEventListener('focus', renderHistory);
+searchName.addEventListener('input', () => { renderHistory(); });
+searchName.addEventListener('blur', () => {
+    setTimeout(() => { document.getElementById('searchHistoryList').style.display = 'none'; }, 200);
+});
+
+// お気に入り（localStorage）
+const FAV_KEY = 'pokeNote_pokemonFavorites';
+function getFavorites() {
+    try { return JSON.parse(localStorage.getItem(FAV_KEY) || '[]'); } catch { return []; }
+}
+function toggleFavorite(id, btn) {
+    let favs = getFavorites();
+    const idx = favs.indexOf(id);
+    if (idx === -1) { favs.push(id); } else { favs.splice(idx, 1); }
+    localStorage.setItem(FAV_KEY, JSON.stringify(favs));
+    const icon = btn.querySelector('i');
+    if (icon) icon.className = favs.includes(id) ? 'bi bi-star-fill text-warning' : 'bi bi-star text-muted';
+    if (document.getElementById('favOnly').checked) fetchPokemon(currentPage);
+}
+
 let debounceTimer;
 searchName.addEventListener('input', () => {
     clearTimeout(debounceTimer);
@@ -124,6 +241,15 @@ searchName.addEventListener('input', () => {
 });
 searchType.addEventListener('change', () => { currentPage = 1; fetchPokemon(1); });
 filterMega.addEventListener('change', () => { currentPage = 1; fetchPokemon(1); });
+sortCol.addEventListener('change', () => { currentPage = 1; fetchPokemon(1); });
+sortDir.addEventListener('change', () => { currentPage = 1; fetchPokemon(1); });
+searchType2.addEventListener('change', () => { currentPage = 1; fetchPokemon(1); });
+
+let bstTimer;
+[bstMin, bstMax].forEach(el => el.addEventListener('input', () => {
+    clearTimeout(bstTimer);
+    bstTimer = setTimeout(() => { currentPage = 1; fetchPokemon(1); }, 600);
+}));
 
 fetchPokemon(1);
 </script>

@@ -40,6 +40,76 @@
         </div>
     </div>
     <div class="col-md-8">
+        @if($pokemon->evolvesFrom->isNotEmpty() || $pokemon->evolvesTo->isNotEmpty())
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-header bg-white"><strong><i class="bi bi-arrow-right-circle"></i> 進化チェーン</strong></div>
+            <div class="card-body">
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    @foreach($pokemon->evolvesFrom as $prev)
+                    <a href="{{ route('pokemon.show', $prev->id) }}" class="text-decoration-none text-center">
+                        <div class="border rounded p-2" style="min-width:80px">
+                            @if($prev->sprite_url)
+                                <img src="{{ $prev->sprite_url }}" style="width:48px;height:48px;object-fit:contain">
+                            @else
+                                <i class="bi bi-question-circle text-muted" style="font-size:2rem"></i>
+                            @endif
+                            <div class="fw-semibold" style="font-size:.8rem">{{ $prev->name_ja }}</div>
+                            <div class="text-muted" style="font-size:.7rem">#{{ str_pad($prev->pokedex_number,4,'0',STR_PAD_LEFT) }}</div>
+                        </div>
+                    </a>
+                    @php
+                        $method = $prev->pivot->method;
+                        $minLv  = $prev->pivot->min_level;
+                        $item   = $prev->pivot->trigger_item;
+                        $methodStr = $method === 'level_up' ? ($minLv ? "Lv.{$minLv}" : 'レベルアップ')
+                                   : ($method === 'use_item' ? ($item ?: 'アイテム')
+                                   : ($method === 'trade' ? '通信交換' : ($method ?? '進化')));
+                    @endphp
+                    <div class="text-center text-muted" style="font-size:.75rem">
+                        <i class="bi bi-arrow-right fs-5"></i><br>{{ $methodStr }}
+                    </div>
+                    @endforeach
+
+                    <a href="{{ route('pokemon.show', $pokemon->id) }}" class="text-decoration-none text-center">
+                        <div class="border border-primary rounded p-2" style="min-width:80px;background:#e8f4fd">
+                            @if($pokemon->sprite_url)
+                                <img src="{{ $pokemon->sprite_url }}" style="width:48px;height:48px;object-fit:contain">
+                            @else
+                                <i class="bi bi-question-circle text-muted" style="font-size:2rem"></i>
+                            @endif
+                            <div class="fw-bold text-primary" style="font-size:.8rem">{{ $pokemon->name_ja }}</div>
+                            <div class="text-muted" style="font-size:.7rem">#{{ str_pad($pokemon->pokedex_number,4,'0',STR_PAD_LEFT) }}</div>
+                        </div>
+                    </a>
+
+                    @foreach($pokemon->evolvesTo as $next)
+                    @php
+                        $method = $next->pivot->method;
+                        $minLv  = $next->pivot->min_level;
+                        $item   = $next->pivot->trigger_item;
+                        $methodStr = $method === 'level_up' ? ($minLv ? "Lv.{$minLv}" : 'レベルアップ')
+                                   : ($method === 'use_item' ? ($item ?: 'アイテム')
+                                   : ($method === 'trade' ? '通信交換' : ($method ?? '進化')));
+                    @endphp
+                    <div class="text-center text-muted" style="font-size:.75rem">
+                        <i class="bi bi-arrow-right fs-5"></i><br>{{ $methodStr }}
+                    </div>
+                    <a href="{{ route('pokemon.show', $next->id) }}" class="text-decoration-none text-center">
+                        <div class="border rounded p-2" style="min-width:80px">
+                            @if($next->sprite_url)
+                                <img src="{{ $next->sprite_url }}" style="width:48px;height:48px;object-fit:contain">
+                            @else
+                                <i class="bi bi-question-circle text-muted" style="font-size:2rem"></i>
+                            @endif
+                            <div class="fw-semibold" style="font-size:.8rem">{{ $next->name_ja }}</div>
+                            <div class="text-muted" style="font-size:.7rem">#{{ str_pad($next->pokedex_number,4,'0',STR_PAD_LEFT) }}</div>
+                        </div>
+                    </a>
+                    @endforeach
+                </div>
+            </div>
+        </div>
+        @endif
         <div class="card border-0 shadow-sm mb-3">
             <div class="card-header bg-white">
                 <strong>種族値</strong> <span class="text-muted">(合計: {{ $pokemon->base_total }})</span>

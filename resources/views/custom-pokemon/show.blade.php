@@ -27,16 +27,41 @@
                 <tr><th>レベル</th><td>{{ $cp->level }}</td></tr>
             </table>
             @if($cp->memo)<div class="alert alert-light text-start" style="font-size:.85rem">{{ $cp->memo }}</div>@endif
-            <div class="d-flex gap-2">
+            <div class="d-flex gap-2 flex-wrap">
                 <a href="{{ route('custom-pokemon.edit', $cp->id) }}" class="btn btn-sm btn-outline-secondary flex-grow-1">
                     <i class="bi bi-pencil"></i> 編集
                 </a>
+                <button class="btn btn-sm btn-outline-info flex-grow-1" onclick="duplicateThis()">
+                    <i class="bi bi-copy"></i> コピー
+                </button>
                 <a href="{{ route('damage-calc.index') }}?attacker={{ $cp->id }}" class="btn btn-sm btn-outline-warning flex-grow-1">
                     <i class="bi bi-calculator"></i> ダメ計
                 </a>
+                <button class="btn btn-sm btn-outline-success flex-grow-1" data-bs-toggle="modal" data-bs-target="#qrModal">
+                    <i class="bi bi-qr-code"></i> QR
+                </button>
                 <button class="btn btn-sm btn-outline-danger" onclick="deleteThis()">
                     <i class="bi bi-trash"></i>
                 </button>
+            </div>
+
+            <!-- QRコードモーダル -->
+            <div class="modal fade" id="qrModal" tabindex="-1">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h6 class="modal-title"><i class="bi bi-qr-code"></i> QRコードで共有</h6>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body text-center">
+                            <p class="text-muted mb-3" style="font-size:.85rem">このQRコードをスキャンするとポケモン構成JSONをインポートできます。</p>
+                            <div id="qrcode" class="d-flex justify-content-center mb-3"></div>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="downloadQr()">
+                                <i class="bi bi-download"></i> PNG保存
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -142,7 +167,59 @@
 </div>
 @endsection
 @push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <script>
+// QRコード生成
+const cpJson = @json([
+    'pokemon_en'  => $cp->pokemon->name_en,
+    'nature'      => $cp->nature,
+    'ability_en'  => $cp->ability->name_en ?? null,
+    'item_en'     => $cp->item?->name_en ?? null,
+    'level'       => $cp->level,
+    'nickname'    => $cp->nickname,
+    'ivs'         => ['hp'=>$cp->iv_hp,'attack'=>$cp->iv_attack,'defense'=>$cp->iv_defense,'sp_attack'=>$cp->iv_sp_attack,'sp_defense'=>$cp->iv_sp_defense,'speed'=>$cp->iv_speed],
+    'evs'         => ['hp'=>$cp->ev_hp,'attack'=>$cp->ev_attack,'defense'=>$cp->ev_defense,'sp_attack'=>$cp->ev_sp_attack,'sp_defense'=>$cp->ev_sp_defense,'speed'=>$cp->ev_speed],
+    'moves_en'    => $cp->moves->pluck('name_en')->values(),
+    'memo'        => $cp->memo,
+]);
+
+let qrInstance = null;
+document.getElementById('qrModal').addEventListener('shown.bs.modal', function() {
+    const container = document.getElementById('qrcode');
+    if (!qrInstance) {
+        container.innerHTML = '';
+        qrInstance = new QRCode(container, {
+            text: JSON.stringify(cpJson),
+            width: 220,
+            height: 220,
+            correctLevel: QRCode.CorrectLevel.M,
+        });
+    }
+});
+
+function downloadQr() {
+    const canvas = document.querySelector('#qrcode canvas');
+    if (!canvas) return;
+    const a = document.createElement('a');
+    a.href = canvas.toDataURL('image/png');
+    a.download = '{{ $cp->display_name }}_qr.png';
+    a.click();
+}
+
+async function duplicateThis() {
+    const res = await fetch('/api/v1/custom-pokemon/{{ $cp->id }}/duplicate', {
+        method: 'POST',
+        headers: {'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content},
+    });
+    if (res.ok) {
+        const copy = await res.json();
+        if (window.showToast) showToast('コピーを作成しました');
+        setTimeout(() => { location.href = '/custom-pokemon/' + copy.id + '/edit'; }, 800);
+    } else {
+        alert('コピーに失敗しました');
+    }
+}
+
 async function deleteThis() {
     if (!confirm('{{ $cp->display_name }} を削除しますか？')) return;
     const res = await fetch('/api/v1/custom-pokemon/{{ $cp->id }}', {

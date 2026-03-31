@@ -13,6 +13,7 @@ use App\Http\Controllers\Web\DamageCalcController;
 use App\Http\Controllers\Web\DashboardController;
 use App\Http\Controllers\Web\MasterDataController;
 use App\Http\Controllers\Web\PokemonController;
+use App\Http\Controllers\Web\TeamController;
 use Illuminate\Support\Facades\Route;
 
 // 認証ルート（ゲスト用）
@@ -39,6 +40,7 @@ Route::middleware('auth')->group(function () {
 
     Route::prefix('pokemon')->name('pokemon.')->group(function () {
         Route::get('/', [PokemonController::class, 'index'])->name('index');
+        Route::get('/type-chart', [PokemonController::class, 'typeChart'])->name('type-chart');
         Route::get('/{id}', [PokemonController::class, 'show'])->name('show');
     });
 
@@ -50,6 +52,7 @@ Route::middleware('auth')->group(function () {
     Route::prefix('custom-pokemon')->name('custom-pokemon.')->group(function () {
         Route::get('/', [CustomPokemonController::class, 'index'])->name('index');
         Route::get('/create', [CustomPokemonController::class, 'create'])->name('create');
+        Route::get('/bulk', [CustomPokemonController::class, 'bulk'])->name('bulk');
         Route::get('/{id}', [CustomPokemonController::class, 'show'])->name('show');
         Route::get('/{id}/edit', [CustomPokemonController::class, 'edit'])->name('edit');
     });
@@ -57,6 +60,7 @@ Route::middleware('auth')->group(function () {
     Route::prefix('damage-calc')->name('damage-calc.')->group(function () {
         Route::get('/', [DamageCalcController::class, 'index'])->name('index');
         Route::get('/formula', [DamageCalcController::class, 'formula'])->name('formula');
+        Route::get('/speed-compare', [DamageCalcController::class, 'speedCompare'])->name('speed-compare');
     });
 
     Route::get('/compare', [CompareController::class, 'index'])->name('compare');
@@ -74,6 +78,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/create', [BattleController::class, 'create'])->name('create');
         Route::get('/{id}', [BattleController::class, 'show'])->name('show');
     });
+
+    Route::get('/teams', [TeamController::class, 'index'])->name('teams.index');
 
     Route::get('/profile', [ProfileController::class, 'show'])->name('profile.show');
     Route::patch('/profile/info', [ProfileController::class, 'updateInfo'])->name('profile.update-info');

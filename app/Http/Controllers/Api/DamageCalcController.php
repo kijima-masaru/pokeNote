@@ -29,6 +29,8 @@ class DamageCalcController extends Controller
             $request->input('terrain', 'none'),
             (bool) $request->input('is_critical', false),
             $request->input('other_modifiers', []),
+            $request->input('extra_damage', []),
+            (float) $request->input('defender_hp_percent', 1.0),
         );
 
         return response()->json($result);

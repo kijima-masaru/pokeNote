@@ -12,10 +12,11 @@ use App\Http\Controllers\Api\ItemController;
 use App\Http\Controllers\Api\MoveController;
 use App\Http\Controllers\Api\PokeApiImportController;
 use App\Http\Controllers\Api\PokemonController;
+use App\Http\Controllers\Api\TeamController;
 use App\Http\Controllers\Api\TurnController;
 use Illuminate\Support\Facades\Route;
 
-Route::prefix('v1')->middleware('auth')->group(function () {
+Route::prefix('v1')->middleware(['web', 'auth'])->group(function () {
     // マスターデータ CRUD
     Route::apiResource('pokemon', PokemonController::class);
     Route::post('/pokemon/{id}/image', [PokemonController::class, 'uploadImage']);
@@ -26,8 +27,10 @@ Route::prefix('v1')->middleware('auth')->group(function () {
 
     // カスタムポケモン CRUD
     Route::apiResource('custom-pokemon', CustomPokemonController::class);
+    Route::post('/custom-pokemon/{id}/duplicate', [CustomPokemonController::class, 'duplicate']);
     // カスタムポケモン エクスポート/インポート
     Route::get('/custom-pokemon/export-all',    [CustomPokemonExportImportController::class, 'exportAll']);
+    Route::post('/custom-pokemon/import-csv',   [CustomPokemonExportImportController::class, 'importCsv']);
     Route::get('/custom-pokemon/{id}/export',   [CustomPokemonExportImportController::class, 'export']);
     Route::post('/custom-pokemon/import',        [CustomPokemonExportImportController::class, 'import']);
 
@@ -38,10 +41,15 @@ Route::prefix('v1')->middleware('auth')->group(function () {
     // 対戦セッション CRUD
     Route::apiResource('battles', BattleController::class);
 
+    // チームビルダー
+    Route::apiResource('teams', TeamController::class);
+    Route::put('/teams/{id}/members/{slot}', [TeamController::class, 'setMember']);
+
     // PokeAPI インポート
-    Route::post('/import/pokemon',      [PokeApiImportController::class, 'importPokemon']);
-    Route::post('/import/pokemon/bulk', [PokeApiImportController::class, 'importPokemonBulk']);
-    Route::post('/import/move',         [PokeApiImportController::class, 'importMove']);
+    Route::post('/import/pokemon',            [PokeApiImportController::class, 'importPokemon']);
+    Route::post('/import/pokemon/bulk',       [PokeApiImportController::class, 'importPokemonBulk']);
+    Route::post('/import/move',               [PokeApiImportController::class, 'importMove']);
+    Route::post('/import/evolutions',         [PokeApiImportController::class, 'importEvolutions']);
 
     // 画面認識
     Route::post('/recognize-pokemon', [ScreenshotRecognitionController::class, 'recognize']);

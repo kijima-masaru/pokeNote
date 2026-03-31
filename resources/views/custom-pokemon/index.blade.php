@@ -11,6 +11,9 @@
             <i class="bi bi-upload"></i> インポート
             <input type="file" accept=".json,application/json" class="d-none" onchange="importFromJson(event)">
         </label>
+        <a href="{{ route('custom-pokemon.bulk') }}" class="btn btn-sm btn-outline-primary">
+            <i class="bi bi-file-earmark-spreadsheet"></i> バルク登録
+        </a>
         <a href="{{ route('custom-pokemon.create') }}" class="btn btn-success btn-sm">
             <i class="bi bi-plus-circle"></i> 新規登録
         </a>
@@ -68,6 +71,10 @@
                         <a href="{{ route('custom-pokemon.show', $cp->id) }}" class="btn btn-sm btn-outline-primary flex-grow-1">詳細</a>
                         <a href="{{ route('damage-calc.index') }}?attacker={{ $cp->id }}" class="btn btn-sm btn-outline-warning" title="ダメージ計算"><i class="bi bi-calculator"></i></a>
                         <a href="{{ route('custom-pokemon.edit', $cp->id) }}" class="btn btn-sm btn-outline-secondary" title="編集"><i class="bi bi-pencil"></i></a>
+                        <button class="btn btn-sm btn-outline-info" title="コピー"
+                                onclick="duplicateCustomPokemon({{ $cp->id }}, this)">
+                            <i class="bi bi-copy"></i>
+                        </button>
                         <button class="btn btn-sm btn-outline-danger" title="削除"
                                 onclick="deleteCustomPokemon({{ $cp->id }}, this)">
                             <i class="bi bi-trash"></i>
@@ -86,6 +93,22 @@
 @endsection
 @push('scripts')
 <script>
+async function duplicateCustomPokemon(id, btn) {
+    btn.disabled = true;
+    const res = await fetch(`/api/v1/custom-pokemon/${id}/duplicate`, {
+        method: 'POST',
+        headers: {'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content},
+    });
+    if (res.ok) {
+        if (window.showToast) showToast('コピーを作成しました。編集画面に移動します...');
+        const copy = await res.json();
+        setTimeout(() => { location.href = `/custom-pokemon/${copy.id}/edit`; }, 800);
+    } else {
+        alert('コピーに失敗しました');
+        btn.disabled = false;
+    }
+}
+
 async function exportAll() {
     const res = await fetch('/api/v1/custom-pokemon/export-all', {
         headers: {'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content},

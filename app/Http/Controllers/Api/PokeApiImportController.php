@@ -151,6 +151,74 @@ class PokeApiImportController extends Controller
     }
 
     /**
+     * PokeAPIから進化チェーンをインポート
+     * POST /api/v1/import/evolutions  { "pokemon_id": 4 }  (pokedex_number)
+     */
+    public function importEvolutions(Request $request): JsonResponse
+    {
+        $request->validate(['pokemon_id' => 'required|integer|min:1']);
+        $pokedexNum = (int) $request->pokemon_id;
+
+        // まずpokemon speciesを取得
+        $speciesRes = Http::timeout(10)->get(self::BASE_URL . "/pokemon-species/{$pokedexNum}");
+        if ($speciesRes->failed()) {
+            return response()->json(['error' => "ポケモンが見つかりませんでした"], 404);
+        }
+        $speciesData = $speciesRes->json();
+
+        // 進化チェーンURLを取得
+        $chainUrl = $speciesData['evolution_chain']['url'] ?? null;
+        if (!$chainUrl) {
+            return response()->json(['message' => '進化チェーンなし', 'count' => 0]);
+        }
+
+        $chainRes = Http::timeout(10)->get($chainUrl);
+        if ($chainRes->failed()) {
+            return response()->json(['error' => '進化チェーン取得失敗'], 500);
+        }
+
+        $chainData = $chainRes->json();
+        $count = 0;
+
+        // 再帰的に進化チェーンを処理
+        $this->processEvolutionChain($chainData['chain'], null, $count);
+
+        return response()->json(['message' => "進化チェーンを{$count}件登録しました", 'count' => $count]);
+    }
+
+    private function processEvolutionChain(array $chain, ?int $fromPokedexNum, int &$count): void
+    {
+        $toPokedexNum = (int) (explode('/', rtrim($chain['species']['url'], '/'))[count(explode('/', rtrim($chain['species']['url'], '/'))) - 1]);
+
+        if ($fromPokedexNum !== null) {
+            $fromPokemon = Pokemon::where('pokedex_number', $fromPokedexNum)->first();
+            $toPokemon   = Pokemon::where('pokedex_number', $toPokedexNum)->first();
+
+            if ($fromPokemon && $toPokemon) {
+                $details = $chain['evolution_details'][0] ?? [];
+                $method  = $details['trigger']['name'] ?? null;
+                $minLevel = $details['min_level'] ?? null;
+                $triggerItem = $details['item']['name'] ?? $details['held_item']['name'] ?? null;
+
+                // PokeAPI trigger名 → 内部名
+                $methodMap = ['level-up' => 'level_up', 'use-item' => 'use_item', 'trade' => 'trade'];
+                $method = $methodMap[$method] ?? $method;
+
+                DB::table('pokemon_evolutions')->updateOrInsert(
+                    ['from_pokemon_id' => $fromPokemon->id, 'to_pokemon_id' => $toPokemon->id],
+                    ['method' => $method, 'min_level' => $minLevel, 'trigger_item' => $triggerItem,
+                     'created_at' => now(), 'updated_at' => now()]
+                );
+                $count++;
+            }
+        }
+
+        foreach ($chain['evolves_to'] as $next) {
+            $this->processEvolutionChain($next, $toPokedexNum, $count);
+        }
+    }
+
+    /**
      * PokeAPIからわざを1つインポート
      * POST /api/v1/import/move  { "id_or_name": "flamethrower" }
      */

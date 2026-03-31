@@ -46,6 +46,8 @@ class DamageCalcAdhocController extends Controller
             'terrain'              => 'nullable|string|in:none,grassy,electric,misty,psychic',
             'is_critical'          => 'nullable|boolean',
             'other_modifiers'      => 'nullable|array',
+            'extra_damage'         => 'nullable|array',
+            'defender_hp_percent'  => 'nullable|numeric|min:0.01|max:1',
         ]);
 
         $attackerPokemon = Pokemon::with('types')->findOrFail($request->input('attacker.pokemon_id'));
@@ -71,6 +73,8 @@ class DamageCalcAdhocController extends Controller
             $request->input('terrain', 'none'),
             (bool) $request->input('is_critical', false),
             $request->input('other_modifiers', []),
+            $request->input('extra_damage', []),
+            (float) $request->input('defender_hp_percent', 1.0),
         );
 
         return response()->json(array_merge($result, [

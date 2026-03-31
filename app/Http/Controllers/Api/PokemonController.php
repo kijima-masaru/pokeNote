@@ -25,6 +25,23 @@ class PokemonController extends Controller
             $query->whereHas('types', fn($q) => $q->where('type', $request->type));
         }
 
+        if ($request->filled('type2')) {
+            $query->whereHas('types', fn($q) => $q->where('type', $request->type2));
+        }
+
+        if ($request->filled('bst_min')) {
+            $query->whereRaw('(base_hp + base_attack + base_defense + base_sp_attack + base_sp_defense + base_speed) >= ?', [(int)$request->bst_min]);
+        }
+
+        if ($request->filled('bst_max')) {
+            $query->whereRaw('(base_hp + base_attack + base_defense + base_sp_attack + base_sp_defense + base_speed) <= ?', [(int)$request->bst_max]);
+        }
+
+        if ($request->filled('ids')) {
+            $ids = array_filter(array_map('intval', (array)$request->get('ids')));
+            if (!empty($ids)) $query->whereIn('id', $ids);
+        }
+
         if ($request->filled('is_mega')) {
             $query->where('is_mega', (bool)$request->is_mega);
         }
@@ -44,7 +61,7 @@ class PokemonController extends Controller
 
     public function show(int $id): JsonResponse
     {
-        $pokemon = Pokemon::with(['types', 'abilities', 'moves'])->findOrFail($id);
+        $pokemon = Pokemon::with(['types', 'abilities', 'moves', 'evolvesFrom', 'evolvesTo'])->findOrFail($id);
         return response()->json($pokemon);
     }
 

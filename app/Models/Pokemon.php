@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Pokemon extends Model
 {
@@ -40,6 +41,20 @@ class Pokemon extends Model
     public function customPokemon(): HasMany
     {
         return $this->hasMany(CustomPokemon::class);
+    }
+
+    /** 進化先（このポケモンが進化元） */
+    public function evolvesTo(): BelongsToMany
+    {
+        return $this->belongsToMany(Pokemon::class, 'pokemon_evolutions', 'from_pokemon_id', 'to_pokemon_id')
+            ->withPivot('method', 'min_level', 'trigger_item');
+    }
+
+    /** 進化前（このポケモンが進化先） */
+    public function evolvesFrom(): BelongsToMany
+    {
+        return $this->belongsToMany(Pokemon::class, 'pokemon_evolutions', 'to_pokemon_id', 'from_pokemon_id')
+            ->withPivot('method', 'min_level', 'trigger_item');
     }
 
     public function getBaseTotalAttribute(): int

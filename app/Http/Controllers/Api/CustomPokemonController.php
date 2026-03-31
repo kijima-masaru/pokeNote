@@ -109,4 +109,25 @@ class CustomPokemonController extends Controller
         CustomPokemon::where('user_id', Auth::id())->findOrFail($id)->delete();
         return response()->json(null, 204);
     }
+
+    public function duplicate(int $id): JsonResponse
+    {
+        $src = CustomPokemon::with('moves')->where('user_id', Auth::id())->findOrFail($id);
+
+        $copy = $src->replicate();
+        $copy->nickname = ($src->nickname ? $src->nickname : $src->pokemon->name_ja ?? '') . ' (コピー)';
+        $copy->user_id  = Auth::id();
+        $copy->save();
+
+        $syncData = [];
+        foreach ($src->moves as $move) {
+            $syncData[$move->id] = ['slot' => $move->pivot->slot];
+        }
+        if ($syncData) {
+            $copy->moves()->sync($syncData);
+        }
+
+        $copy->load(['pokemon.types', 'ability', 'item', 'moves']);
+        return response()->json($copy, 201);
+    }
 }

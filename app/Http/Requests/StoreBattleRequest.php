@@ -19,6 +19,7 @@ class StoreBattleRequest extends FormRequest
             'result'        => 'nullable|in:win,lose,draw',
             'format'        => 'nullable|string|max:50',
             'memo'          => 'nullable|string',
+            'tags'          => 'nullable|string|max:500',
             'played_at'     => 'nullable|date',
         ];
     }

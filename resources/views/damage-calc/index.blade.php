@@ -164,8 +164,57 @@
                     </div>
                     <div class="form-check">
                         <input class="form-check-input" type="checkbox" x-model="burned" id="burnCheck">
-                        <label class="form-check-label" for="burnCheck" style="font-size:.85rem">やけど</label>
+                        <label class="form-check-label" for="burnCheck" style="font-size:.85rem">やけど（物理半減）</label>
                     </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" x-model="grounded" id="groundedCheck">
+                        <label class="form-check-label" for="groundedCheck" style="font-size:.85rem">地面にいる（フィールド有効）</label>
+                    </div>
+                    <hr class="my-2">
+                    <div class="fw-semibold mb-1" style="font-size:.8rem"><i class="bi bi-shield-shaded"></i> 壁（防御側）</div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" x-model="reflect" id="reflectCheck">
+                        <label class="form-check-label" for="reflectCheck" style="font-size:.85rem">リフレクター（物理半減）</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" x-model="lightScreen" id="lightScreenCheck">
+                        <label class="form-check-label" for="lightScreenCheck" style="font-size:.85rem">ひかりのかべ（特殊半減）</label>
+                    </div>
+                    <hr class="my-2">
+                    <div class="fw-semibold mb-1" style="font-size:.8rem"><i class="bi bi-plus-circle"></i> 追加ダメージ</div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" x-model="extraStealthRock" id="srCheck">
+                        <label class="form-check-label" for="srCheck" style="font-size:.85rem">ステルスロック</label>
+                    </div>
+                    <div class="d-flex align-items-center gap-1 mb-1">
+                        <span style="font-size:.85rem">まきびし</span>
+                        <select class="form-select form-select-sm" x-model="spikesLevel" style="width:auto">
+                            <option value="0">なし</option>
+                            <option value="1">1枚（1/8）</option>
+                            <option value="2">2枚（1/6）</option>
+                            <option value="3">3枚（1/4）</option>
+                        </select>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" x-model="extraDisguise" id="disguiseCheck">
+                        <label class="form-check-label" for="disguiseCheck" style="font-size:.85rem">ばけのかわ（HP×1/8）</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" x-model="extraRockyHelmet" id="rockyCheck">
+                        <label class="form-check-label" for="rockyCheck" style="font-size:.85rem">ゴツゴツメット（攻撃側HP×1/6）</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" x-model="extraLifeOrb" id="lifeOrbCheck">
+                        <label class="form-check-label" for="lifeOrbCheck" style="font-size:.85rem">いのちのたま（×1.3・反動HP×1/10）</label>
+                    </div>
+                    <hr class="my-2">
+                    <div class="fw-semibold mb-1" style="font-size:.8rem"><i class="bi bi-heart-half"></i> 防御側残りHP</div>
+                    <div class="d-flex align-items-center gap-2">
+                        <input type="range" class="form-range flex-grow-1" min="1" max="100"
+                               x-model.number="defenderHpPercent" style="flex:1">
+                        <span class="fw-bold" style="min-width:42px;font-size:.9rem" x-text="defenderHpPercent+'%'"></span>
+                    </div>
+                    <div class="text-muted" style="font-size:.72rem">（満タン=100%、残り半分=50% など）</div>
                 </div>
             </div>
         </div>
@@ -313,14 +362,123 @@
                             </div>
                         </div>
                     </div>
+                    <!-- HP残量表示 -->
+                    <div class="mb-2" x-show="defenderHpPercent < 100">
+                        <div class="text-muted mb-1" style="font-size:.8rem">
+                            防御側現在HP: <span class="fw-bold" x-text="result?.defender_hp_current"></span>
+                            / <span x-text="result?.defender_hp_max"></span>
+                            (<span x-text="defenderHpPercent"></span>%)
+                        </div>
+                    </div>
                     <div>
                         <div class="text-muted mb-1" style="font-size:.8rem">乱数16本</div>
                         <div class="d-flex gap-1 flex-wrap">
                             <template x-for="(roll, i) in (result?.rolls||[])" :key="i">
                                 <div class="text-center px-2 py-1 rounded"
-                                     :class="roll >= defenderHp ? 'bg-danger text-white' : 'bg-light border'"
+                                     :class="roll >= (result?.defender_hp_current||defenderHpVal) ? 'bg-danger text-white' : 'bg-light border'"
                                      style="min-width:42px;font-size:.8rem" x-text="roll"></div>
                             </template>
+                        </div>
+                    </div>
+                    <!-- 追加ダメージ -->
+                    <div class="mt-2" x-show="(result?.additional_damage||[]).length > 0">
+                        <div class="text-muted mb-1" style="font-size:.8rem"><i class="bi bi-plus-circle"></i> 追加ダメージ</div>
+                        <div class="d-flex flex-wrap gap-2">
+                            <template x-for="(ad, ai) in (result?.additional_damage||[])" :key="ai">
+                                <div class="badge bg-warning text-dark px-2 py-1" style="font-size:.8rem">
+                                    <span x-text="ad.label"></span>:
+                                    <span x-show="ad.damage !== null" x-text="ad.damage+'ダメ'"></span>
+                                    (<span x-text="ad.percent+'%'"></span>)
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 連続計算モード -->
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center"
+                     style="cursor:pointer" @click="multiCalcOpen=!multiCalcOpen">
+                    <strong><i class="bi bi-table"></i> 連続計算モード <span class="badge bg-secondary ms-1" style="font-size:.7rem">複数技・相手を一括比較</span></strong>
+                    <i class="bi" :class="multiCalcOpen?'bi-chevron-up':'bi-chevron-down'"></i>
+                </div>
+                <div x-show="multiCalcOpen" x-collapse>
+                    <div class="card-body">
+                        <p class="text-muted mb-2" style="font-size:.82rem">技リストや相手ポケモンリストを追加して一括計算します。攻撃側は現在設定中の攻撃側を使用します。</p>
+                        <div class="row g-2 mb-2">
+                            <div class="col-md-6">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <strong style="font-size:.85rem">技リスト</strong>
+                                    <button class="btn btn-xs btn-outline-secondary" style="font-size:.75rem;padding:1px 8px" @click="multiMoves.push({id:'',name:''})">+ 追加</button>
+                                </div>
+                                <template x-for="(mm, mi) in multiMoves" :key="mi">
+                                    <div class="d-flex gap-1 mb-1">
+                                        <select class="form-select form-select-sm" x-model="mm.id" @change="mm.name=moveList.find(m=>m.id==mm.id)?.name_ja||''">
+                                            <option value="">-- 技を選択 --</option>
+                                            <template x-for="m in moveList" :key="m.id">
+                                                <option :value="m.id" x-text="m.name_ja"></option>
+                                            </template>
+                                        </select>
+                                        <button class="btn btn-xs btn-outline-danger" style="font-size:.7rem;padding:1px 6px" @click="multiMoves.splice(mi,1)">✕</button>
+                                    </div>
+                                </template>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <strong style="font-size:.85rem">相手ポケモンリスト</strong>
+                                    <button class="btn btn-xs btn-outline-secondary" style="font-size:.75rem;padding:1px 8px" @click="multiDefenders.push({id:'',name:''})">+ 追加</button>
+                                </div>
+                                <template x-for="(md, di) in multiDefenders" :key="di">
+                                    <div class="d-flex gap-1 mb-1">
+                                        <select class="form-select form-select-sm" x-model="md.id" @change="md.name=myPokemonList.find(p=>p.id==md.id)?.display_name||''">
+                                            <option value="">-- マイポケモンから選択 --</option>
+                                            @foreach($myPokemonList as $cp)
+                                                <option value="{{ $cp->id }}">{{ $cp->display_name }}</option>
+                                            @endforeach
+                                        </select>
+                                        <button class="btn btn-xs btn-outline-danger" style="font-size:.7rem;padding:1px 6px" @click="multiDefenders.splice(di,1)">✕</button>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                        <div class="text-center mb-2">
+                            <button class="btn btn-warning btn-sm px-4 fw-bold" @click="runMultiCalc()" :disabled="multiCalcLoading">
+                                <span x-show="multiCalcLoading" class="spinner-border spinner-border-sm me-1"></span>
+                                <i class="bi bi-play-fill"></i> 一括計算
+                            </button>
+                        </div>
+                        <div x-show="multiResults.length > 0" class="table-responsive">
+                            <table class="table table-sm table-hover mb-0" style="font-size:.8rem">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>技</th>
+                                        <th>相手</th>
+                                        <th class="text-center">相性</th>
+                                        <th class="text-center">ダメージ</th>
+                                        <th class="text-center">割合</th>
+                                        <th class="text-center">確定</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template x-for="(r, ri) in multiResults" :key="ri">
+                                        <tr :class="r.one_shot?'table-danger':r.two_shot?'table-warning':''">
+                                            <td x-text="r.move_name"></td>
+                                            <td x-text="r.defender_name"></td>
+                                            <td class="text-center" x-text="r.type_effectiveness+'x'"></td>
+                                            <td class="text-center" x-text="r.damage_min+'~'+r.damage_max"></td>
+                                            <td class="text-center" x-text="r.damage_percent_min+'%~'+r.damage_percent_max+'%'"></td>
+                                            <td class="text-center">
+                                                <span x-show="r.one_shot" class="badge bg-danger">確定1発</span>
+                                                <span x-show="!r.one_shot && r.two_shot" class="badge bg-warning text-dark">確定2発</span>
+                                                <span x-show="!r.one_shot && !r.two_shot" class="text-muted">3発以上</span>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
@@ -395,15 +553,29 @@ function damageCalc(initAttackerId, initDefenderId) {
                         stats:null, basePokemon:null},
 
         weather: 'none', terrain: 'none', isCritical: false, burned: false,
+        grounded: false,
+        reflect: false, lightScreen: false,
+        extraStealthRock: false, spikesLevel: 0,
+        extraDisguise: false, extraRockyHelmet: false, extraLifeOrb: false,
+        defenderHpPercent: 100,
         attackerRank: {attack:0, sp_attack:0},
         defenderRank: {defense:0, sp_defense:0},
         result: null,
         memos: [],
         rankOptions: [-6,-5,-4,-3,-2,-1,0,1,2,3,4,5,6],
+        // 連続計算モード
+        multiCalcOpen: false,
+        multiMoves: [{id:'',name:''}],
+        multiDefenders: [{id:'',name:''}],
+        multiResults: [],
+        multiCalcLoading: false,
+        moveList: [],
 
-        get defenderHp() {
-            if (this.defenderMode === 'adhoc') return this.adhocDefender.stats?.hp || Infinity;
-            return this.defenderInfo?.actual_stats?.hp || Infinity;
+        get defenderHpVal() {
+            const hp = this.defenderMode === 'adhoc'
+                ? (this.adhocDefender.stats?.hp || 0)
+                : (this.defenderInfo?.actual_stats?.hp || 0);
+            return hp > 0 ? Math.max(1, Math.floor(hp * this.defenderHpPercent / 100)) : Infinity;
         },
 
         get canCalculate() {
@@ -415,6 +587,10 @@ function damageCalc(initAttackerId, initDefenderId) {
         async init() {
             if (this.attackerId) await this.loadAttacker();
             if (this.defenderId) await this.loadDefender();
+            // 連続計算用わざリストをロード
+            const mres = await fetch('/api/v1/moves?per_page=500');
+            const mdata = await mres.json();
+            this.moveList = mdata.data || [];
         },
 
         async loadAttacker() {
@@ -485,9 +661,29 @@ function damageCalc(initAttackerId, initDefenderId) {
             };
         },
 
+        buildModifiers() {
+            const m = [];
+            if (this.burned)      m.push('burned');
+            if (this.reflect)     m.push('reflect');
+            if (this.lightScreen) m.push('light_screen');
+            if (this.grounded)    m.push('grounded');
+            return m;
+        },
+
+        buildExtraDamage() {
+            const e = [];
+            if (this.extraStealthRock) e.push('stealth_rock');
+            if (this.spikesLevel == 1) e.push('spikes_1');
+            if (this.spikesLevel == 2) e.push('spikes_2');
+            if (this.spikesLevel == 3) e.push('spikes_3');
+            if (this.extraDisguise)    e.push('disguise');
+            if (this.extraRockyHelmet) e.push('rocky_helmet');
+            if (this.extraLifeOrb)     e.push('life_orb');
+            return e;
+        },
+
         async calculate() {
-            const modifiers = [];
-            if (this.burned) modifiers.push('burned');
+            const modifiers = this.buildModifiers();
 
             let payload, url;
             if (this.attackerMode === 'adhoc' || this.defenderMode === 'adhoc') {
@@ -517,6 +713,8 @@ function damageCalc(initAttackerId, initDefenderId) {
                         defender_rank: this.defenderRank,
                         weather: this.weather, terrain: this.terrain,
                         is_critical: this.isCritical, other_modifiers: modifiers,
+                        extra_damage: this.buildExtraDamage(),
+                        defender_hp_percent: this.defenderHpPercent / 100,
                     };
                 } else {
                     // アドホック用: 両方のデータをまとめて送る
@@ -556,6 +754,8 @@ function damageCalc(initAttackerId, initDefenderId) {
                         attacker_rank: this.attackerRank, defender_rank: this.defenderRank,
                         weather: this.weather, terrain: this.terrain,
                         is_critical: this.isCritical, other_modifiers: modifiers,
+                        extra_damage: this.buildExtraDamage(),
+                        defender_hp_percent: this.defenderHpPercent / 100,
                     };
                 }
             } else {
@@ -567,6 +767,8 @@ function damageCalc(initAttackerId, initDefenderId) {
                     attacker_rank: this.attackerRank, defender_rank: this.defenderRank,
                     weather: this.weather, terrain: this.terrain,
                     is_critical: this.isCritical, other_modifiers: modifiers,
+                    extra_damage: this.buildExtraDamage(),
+                    defender_hp_percent: this.defenderHpPercent / 100,
                 };
             }
 
@@ -576,6 +778,51 @@ function damageCalc(initAttackerId, initDefenderId) {
                 body: JSON.stringify(payload),
             });
             this.result = await res.json();
+        },
+
+        async runMultiCalc() {
+            const moves    = this.multiMoves.filter(m => m.id);
+            const defenders = this.multiDefenders.filter(d => d.id);
+            if (moves.length === 0 || defenders.length === 0 || !this.attackerId) {
+                alert('攻撃側マイポケモン・技・相手ポケモンをそれぞれ1件以上設定してください');
+                return;
+            }
+            this.multiCalcLoading = true;
+            this.multiResults = [];
+            const csrfToken = document.querySelector('meta[name=csrf-token]').content;
+            const modifiers = this.burned ? ['burned'] : [];
+
+            for (const mv of moves) {
+                for (const df of defenders) {
+                    try {
+                        const payload = {
+                            attacker_id: parseInt(this.attackerId),
+                            defender_id: parseInt(df.id),
+                            move_id: parseInt(mv.id),
+                            attacker_rank: this.attackerRank,
+                            defender_rank: this.defenderRank,
+                            weather: this.weather,
+                            terrain: this.terrain,
+                            is_critical: this.isCritical,
+                            other_modifiers: modifiers,
+                        };
+                        const res  = await fetch('/api/v1/damage-calc', {
+                            method: 'POST',
+                            headers: {'Content-Type':'application/json','X-CSRF-TOKEN': csrfToken},
+                            body: JSON.stringify(payload),
+                        });
+                        const data = await res.json();
+                        const moveName    = this.moveList.find(m => m.id == mv.id)?.name_ja || mv.id;
+                        const defenderName = @json($myPokemonList->pluck('display_name', 'id'));
+                        this.multiResults.push({
+                            move_name: moveName,
+                            defender_name: defenderName[df.id] || df.id,
+                            ...data,
+                        });
+                    } catch {}
+                }
+            }
+            this.multiCalcLoading = false;
         },
 
         saveToMemo() {

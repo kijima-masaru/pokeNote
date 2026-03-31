@@ -32,4 +32,11 @@ class DamageCalcController extends Controller
     {
         return view('damage-calc.formula');
     }
+
+    public function speedCompare(): View
+    {
+        $myPokemonList = CustomPokemon::with(['pokemon'])->where('user_id', \Illuminate\Support\Facades\Auth::id())->latest()->get();
+        $natures = Nature::cases();
+        return view('damage-calc.speed-compare', compact('myPokemonList', 'natures'));
+    }
 }

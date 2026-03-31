@@ -12,8 +12,30 @@
     <div class="col-lg-8">
         <!-- 1. ポケモン選択 -->
         <div class="card border-0 shadow-sm mb-3">
-            <div class="card-header bg-white"><strong>1. ポケモン選択</strong></div>
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <strong>1. ポケモン選択</strong>
+                <button type="button" class="btn btn-sm btn-outline-warning" @click="showFavList=!showFavList">
+                    <i class="bi bi-star-fill text-warning"></i> お気に入りから選ぶ
+                    <span class="badge bg-warning text-dark ms-1" x-text="favPokemons.length" x-show="favPokemons.length>0"></span>
+                </button>
+            </div>
             <div class="card-body">
+                <!-- お気に入り一覧 -->
+                <div x-show="showFavList && favPokemons.length > 0" class="border rounded p-2 mb-2 bg-warning bg-opacity-10" style="max-height:160px;overflow-y:auto">
+                    <div class="text-muted mb-1" style="font-size:.75rem"><i class="bi bi-star-fill text-warning"></i> お気に入りポケモン</div>
+                    <template x-for="p in favPokemons" :key="p.id">
+                        <div class="d-flex align-items-center p-1 rounded"
+                             :class="selectedPokemon?.id===p.id?'bg-primary text-white':''"
+                             @click="selectPokemon(p);showFavList=false" style="cursor:pointer">
+                            <img :src="p.sprite_url||''" style="width:36px;height:36px;object-fit:contain" class="me-2">
+                            <span x-text="p.name_ja" class="fw-semibold"></span>
+                            <small class="ms-2" x-text="'#'+String(p.pokedex_number).padStart(4,'0')"></small>
+                        </div>
+                    </template>
+                </div>
+                <div x-show="showFavList && favPokemons.length === 0" class="text-muted small mb-2">
+                    <i class="bi bi-star text-muted"></i> お気に入りがありません。ポケモン図鑑で★ボタンを押して追加できます。
+                </div>
                 <input type="text" class="form-control mb-2" placeholder="ポケモン名で検索..."
                        x-model="pokemonSearch" @input.debounce.400ms="searchPokemon()">
                 <div x-show="pokemonResults.length > 0" class="border rounded p-2 mb-2" style="max-height:200px;overflow-y:auto">
@@ -210,6 +232,7 @@ function customPokemonForm(initialPokemonId) {
     return {
         pokemonSearch: '', pokemonResults: [], selectedPokemon: null,
         pokemonAbilities: [], pokemonMoves: [],
+        showFavList: false, favPokemons: [],
         nature: 'hardy', abilityId: '', itemId: '', level: 50, nickname: '', memo: '',
         ivs: {hp:31,attack:31,defense:31,sp_attack:31,sp_defense:31,speed:31},
         evs: {hp:0,attack:0,defense:0,sp_attack:0,sp_defense:0,speed:0},
@@ -233,6 +256,20 @@ function customPokemonForm(initialPokemonId) {
         },
 
         async init() {
+            // お気に入りポケモンをlocalStorageから取得して詳細を読み込む
+            const FAV_KEY = 'pokeNote_pokemonFavorites';
+            try {
+                const favIds = JSON.parse(localStorage.getItem(FAV_KEY) || '[]');
+                if (favIds.length > 0) {
+                    const params = favIds.map(id => `ids[]=${id}`).join('&');
+                    const res = await fetch(`/api/v1/pokemon?per_page=100&${params}`);
+                    const d = await res.json();
+                    // idリストの順に並べる
+                    const map = {};
+                    (d.data||[]).forEach(p => map[p.id]=p);
+                    this.favPokemons = favIds.map(id=>map[id]).filter(Boolean);
+                }
+            } catch {}
             if (initialPokemonId) {
                 const res = await fetch(`/api/v1/pokemon/${initialPokemonId}`);
                 const p = await res.json();

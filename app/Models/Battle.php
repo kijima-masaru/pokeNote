@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Battle extends Model
 {
     protected $fillable = [
-        'user_id', 'title', 'opponent_name', 'result', 'format', 'memo', 'played_at',
+        'user_id', 'title', 'opponent_name', 'result', 'format', 'memo', 'tags', 'played_at',
     ];
 
     protected $casts = [
